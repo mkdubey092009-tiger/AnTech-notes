@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>NoteVault Pro — Keep & Samsung Notes PWA</title>
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --radius: 14px;
+    }
+    body.dark {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 84px; transition: background 0.2s, color 0.2s; }
+
+    /* Top Header */
+    header {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.15rem; color: var(--primary); }
+    .search-box {
+      flex: 1; min-width: 200px; max-width: 460px;
+      padding: 9px 14px; border-radius: 999px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); outline: none;
+    }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); cursor: pointer; font-weight: 600; font-size: 0.88rem;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+
+    /* Filter Tabs */
+    .tabs {
+      display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px;
+      border-bottom: 1px solid var(--border); background: var(--surface);
+    }
+    .tab {
+      padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border);
+      background: transparent; color: var(--text); cursor: pointer; white-space: nowrap; font-size: 0.85rem;
+    }
+    .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* Notes Grid */
+    .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 12px 0 8px; font-weight: 700; }
+    .notes-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;
+    }
+    .note-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s; position: relative;
+    }
+    .note-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+    .note-card h3 { font-size: 1rem; word-break: break-word; padding-right: 26px; }
+    .note-preview { font-size: 0.88rem; color: inherit; opacity: 0.88; max-height: 120px; overflow: hidden; word-break: break-word; }
+    .note-sketch-thumb { width: 100%; max-height: 130px; object-fit: contain; border-radius: 8px; background: #fff; border: 1px solid rgba(0,0,0,0.1); }
+    .note-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 6px; align-items: center; }
+    .badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,0.08); font-weight: 600; }
+    body.dark .badge { background: rgba(255,255,255,0.12); }
+    .pin-btn { position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 1.1rem; cursor: pointer; }
+
+    /* Note Colors */
+    .c-default { background: var(--surface); }
+    .c-yellow { background: #fef9c3; color: #1e293b; }
+    .c-green  { background: #dcfce7; color: #1e293b; }
+    .c-blue   { background: #dbeafe; color: #1e293b; }
+    .c-pink   { background: #fce7f3; color: #1e293b; }
+    .c-purple { background: #f3e8ff; color: #1e293b; }
+    .c-orange { background: #ffedd5; color: #1e293b; }
+
+    /* Floating Action Bar */
+    .fab-bar {
+      position: fixed; bottom: 18px; right: 18px; z-index: 30;
+      display: flex; gap: 10px;
+    }
+    .fab {
+      padding: 13px 18px; border-radius: 999px; border: none;
+      background: var(--primary); color: #fff; font-weight: 700; font-size: 0.92rem;
+      box-shadow: 0 8px 24px rgba(37,99,235,0.4); cursor: pointer;
+    }
+    .fab.secondary { background: #0f172a; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.65); z-index: 50;
+      display: none; align-items: center; justify-content: center; padding: 14px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface); color: var(--text); width: 100%; max-width: 760px;
+      max-height: 92vh; overflow-y: auto; border-radius: 18px; padding: 20px;
+      border: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .input-title {
+      width: 100%; font-size: 1.2rem; font-weight: 700; padding: 8px 10px;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text);
+    }
+
+    /* Rich Text Toolbar (Samsung Notes style) */
+    .toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); }
+    .editor-area {
+      min-height: 170px; padding: 12px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--bg); color: var(--text); outline: none; line-height: 1.5;
+    }
+
+    /* Checklist */
+    .checklist-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .checklist-item input[type="text"] {
+      flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg); color: var(--text);
+    }
+    .checklist-item.done input[type="text"] { text-decoration: line-through; opacity: 0.6; }
+
+    /* Sketch Canvas */
+    .canvas-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #ffffff; }
+    #sketchCanvas { width: 100%; height: 240px; display: block; touch-action: none; cursor: crosshair; }
+
+    /* Swatches */
+    .swatches { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .swatch { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #94a3b8; cursor: pointer; }
+
+    /* PDF Split Viewer */
+    .pdf-layout { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 768px) { .pdf-layout { grid-template-columns: 1.4fr 1fr; } }
+    .pdf-canvas-box {
+      background: #334155; border-radius: 10px; padding: 10px;
+      max-height: 55vh; overflow: auto; text-align: center;
+    }
+    #pdfCanvas { max-width: 100%; height: auto; background: #fff; }
+
+    /* Permission Card */
+    .perm-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg);
+    }
+    .perm-status { font-size: 0.78rem; font-weight: 700; color: var(--primary); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">📝 NoteVault Pro</div>
+    <input type="search" id="searchInput" class="search-box" placeholder="Search notes, checklists, labels..." />
+    <div class="header-actions">
+      <button class="btn btn-sm" id="permBtn" title="App Permissions">🔐 Permissions</button>
+      <button class="btn btn-sm" id="exportBtn" title="Backup JSON">💾 Backup</button>
+      <button class="btn btn-sm" id="themeBtn" title="Toggle Dark Mode">🌓</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="filterTabs">
+    <button class="tab active" data-filter="all">All Notes</button>
+    <button class="tab" data-filter="checklist">Checklists</button>
+    <button class="tab" data-filter="sketch">Handwriting / Sketches</button>
+    <button class="tab" data-filter="pdf">PDF Notes</button>
+    <button class="tab" data-filter="archive">Archive</button>
+    <button class="tab" data-filter="trash">Trash</button>
+  </nav>
+
+  <main class="container">
+    <div id="pinnedSection" style="display:none;">
+      <div class="section-title">📌 Pinned</div>
+      <div class="notes-grid" id="pinnedGrid"></div>
+    </div>
+    <div class="section-title" id="otherTitle">Notes</div>
+    <div class="notes-grid" id="notesGrid"></div>
+  </main>
+
+  <div class="fab-bar">
+    <button class="fab secondary" id="openPdfReaderBtn">📄 Read PDF</button>
+    <button class="fab" id="newNoteBtn">+ New Note</button>
+  </div>
+
+  <!-- FIRST-TIME PERMISSION ONBOARDING MODAL -->
+  <div class="modal-backdrop" id="permModal">
+    <div class="modal" style="max-width: 520px;">
+      <div class="modal-header">
+        <h2>Welcome to NoteVault Pro</h2>
+      </div>
+      <p style="color: var(--muted); font-size: 0.92rem; line-height: 1.5;">
+        To unlock reminders, offline saving, and local PDF file reading, please grant the permissions below:
+      </p>
+
+      <div class="perm-row">
+        <div>
+          <strong>🔔 Notifications</strong>
+          <div style="font-size: 0.82rem; color: var(--muted);">Required for scheduled note & task reminders.</div>
+          <div class="perm-status" id="notifStatus">Status: Pending</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="reqNotifBtn">Allow</button>
+      </div>
+
+      <div class="perm-row">
+        <div>
+          <strong>📂 Files & Offline Storage</strong>
+          <div style="font-size: 0.82rem; color: var(--muted);">Allows reading PDFs from your device and persistent storage.</div>
+          <div class="perm-status" id="storageStatus">Status: Pending</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="reqStorageBtn">Allow</button>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+        <button class="btn btn-primary" id="finishOnboardBtn">Continue to App →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTE EDITOR MODAL (KEEP + SAMSUNG NOTES HYBRID) -->
+  <div class="modal-backdrop" id="editorModal">
+    <div class="modal">
+      <div class="modal-header">
+        <input type="text" id="noteTitle" class="input-title" placeholder="Note title..." />
+        <button class="btn btn-sm" id="closeEditorBtn">✕</button>
+      </div>
+
+      <!-- Mode Switcher -->
+      <div class="toolbar">
+        <button class="btn btn-sm" data-mode="text">📝 Rich Text</button>
+        <button class="btn btn-sm" data-mode="checklist">☑️ Checklist</button>
+        <button class="btn btn-sm" data-mode="sketch">✍️ Sketch / Stylus</button>
+        <span style="border-left:1px solid var(--border); margin:0 4px;"></span>
+        <button class="btn btn-sm" onclick="execFmt('bold')"><b>B</b></button>
+        <button class="btn btn-sm" onclick="execFmt('italic')"><i>I</i></button>
+        <button class="btn btn-sm" onclick="execFmt('underline')"><u>U</u></button>
+        <button class="btn btn-sm" onclick="execFmt('hiliteColor', '#fef08a')">🖍️ Highlight</button>
+        <button class="btn btn-sm" onclick="execFmt('insertUnorderedList')">• List</button>
+      </div>
+
+      <!-- Rich Text Pane -->
+      <div id="textPane">
+        <div id="noteBody" class="editor-area" contenteditable="true" data-placeholder="Write your note here..."></div>
+      </div>
+
+      <!-- Checklist Pane -->
+      <div id="checklistPane" style="display:none;">
+        <div id="checklistItems"></div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <input type="text" id="newCheckItem" class="input-title" style="font-size:0.92rem;" placeholder="Add checklist item..." />
+          <button class="btn btn-primary btn-sm" id="addCheckItemBtn">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Sketch / Handwriting Pane -->
+      <div id="sketchPane" style="display:none;">
+        <div class="toolbar" style="margin-bottom:8px;">
+          <label style="font-size:0.82rem;">Pen Color: <input type="color" id="penColor" value="#0f172a" /></label>
+          <label style="font-size:0.82rem;">Size: <input type="range" id="penSize" min="1" max="16" value="3" /></label>
+          <button class="btn btn-sm" id="eraserBtn">🧽 Eraser</button>
+          <button class="btn btn-sm" id="clearCanvasBtn">🗑️ Clear</button>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="sketchCanvas" width="700" height="240"></canvas>
+        </div>
+      </div>
+
+      <!-- Metadata: Label, Reminder, Color -->
+      <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+        <div class="swatches" id="colorSwatches">
+          <span style="font-size:0.82rem; color:var(--muted);">Color:</span>
+          <div class="swatch" data-color="c-default" style="background:#ffffff;"></div>
+          <div class="swatch" data-color="c-yellow" style="background:#fef9c3;"></div>
+          <div class="swatch" data-color="c-green" style="background:#dcfce7;"></div>
+          <div class="swatch" data-color="c-blue" style="background:#dbeafe;"></div>
+          <div class="swatch" data-color="c-pink" style="background:#fce7f3;"></div>
+          <div class="swatch" data-color="c-purple" style="background:#f3e8ff;"></div>
+          <div class="swatch" data-color="c-orange" style="background:#ffedd5;"></div>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input type="text" id="noteLabel" placeholder="Label (e.g. Study)" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); width:130px;" />
+          <input type="datetime-local" id="noteReminder" style="padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+        </div>
+      </div>
+
+      <!-- Editor Footer Actions -->
+      <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; border-top:1px solid var(--border); padding-top:12px;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-sm" id="archiveNoteBtn">📦 Archive</button>
+          <button class="btn btn-danger btn-sm" id="deleteNoteBtn">🗑️ Delete</button>
+        </div>
+        <button class="btn btn-primary" id="saveNoteBtn">Save Note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF READER + STUDY NOTES MODAL -->
+  <div class="modal-backdrop" id="pdfModal">
+    <div class="modal" style="max-width: 960px;">
+      <div class="modal-header">
+        <h3>📄 PDF Reader & Study Notes</h3>
+        <button class="btn btn-sm" id="closePdfBtn">✕</button>
+      </div>
+
+      <div class="toolbar">
+        <input type="file" id="pdfFileInput" accept="application/pdf" />
+        <button class="btn btn-sm" id="prevPageBtn">◀ Prev</button>
+        <span id="pageIndicator" style="font-size:0.85rem; font-weight:600;">Page 0 / 0</span>
+        <button class="btn btn-sm" id="nextPageBtn">Next ▶</button>
+        <button class="btn btn-sm" id="zoomOutBtn">➖</button>
+        <button class="btn btn-sm" id="zoomInBtn">➕</button>
+      </div>
+
+      <div class="pdf-layout">
+        <div class="pdf-canvas-box">
+          <canvas id="pdfCanvas"></canvas>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <strong>Quick Notes While Reading</strong>
+          <input type="text" id="pdfNoteTitle" class="input-title" style="font-size:0.95rem;" placeholder="PDF Note Title..." />
+          <textarea id="pdfNoteText" style="flex:1; min-height:220px; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text);" placeholder="Jot down key points from this PDF..."></textarea>
+          <button class="btn btn-primary" id="savePdfNoteBtn">💾 Save as PDF Note</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Register Service Worker for PWA / PWABuilder
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      });
+    }
+
+    // Configure PDF.js worker
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // App State
+    let notes = JSON.parse(localStorage.getItem('notevault_notes_v1') || '[]');
+    let currentFilter = 'all';
+    let editingId = null;
+    let currentColor = 'c-default';
+    let currentChecklist = [];
+    let hasSketch = false;
+
+    const saveToStorage = () => localStorage.setItem('notevault_notes_v1', JSON.stringify(notes));
+
+    // --- 1. FIRST-TIME PERMISSION ONBOARDING ---
+    const permModal = document.getElementById('permModal');
+    const notifStatus = document.getElementById('notifStatus');
+    const storageStatus = document.getElementById('storageStatus');
+
+    function updatePermissionBadges() {
+      if ('Notification' in window) {
+        notifStatus.textContent = 'Status: ' + Notification.permission.toUpperCase();
+      } else {
+        notifStatus.textContent = 'Status: Not supported on this browser';
+      }
+      if (localStorage.getItem('notevault_storage_granted') === 'true') {
+        storageStatus.textContent = 'Status: GRANTED';
+      }
+    }
+
+    document.getElementById('reqNotifBtn').onclick = async () => {
+      if ('Notification' in window) {
+        const res = await Notification.requestPermission();
+        notifStatus.textContent = 'Status: ' + res.toUpperCase();
+      }
+    };
+
+    document.getElementById('reqStorageBtn').onclick = async () => {
+      if (navigator.storage && navigator.storage.persist) {
+        await navigator.storage.persist();
+      }
+      localStorage.setItem('notevault_storage_granted', 'true');
+      storageStatus.textContent = 'Status: GRANTED (Local Files & Offline Ready)';
+    };
+
+    document.getElementById('finishOnboardBtn').onclick = () => {
+      localStorage.setItem('notevault_onboarded', 'true');
+      permModal.classList.remove('open');
+    };
+
+    document.getElementById('permBtn').onclick = () => {
+      updatePermissionBadges();
+      permModal.classList.add('open');
+    };
+
+    if (!localStorage.getItem('notevault_onboarded')) {
+      updatePermissionBadges();
+      permModal.classList.add('open');
+    }
+
+    // --- 2. THEME & BACKUP ---
+    if (localStorage.getItem('notevault_dark') === 'true') document.body.classList.add('dark');
+    document.getElementById('themeBtn').onclick = () => {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('notevault_dark', document.body.classList.contains('dark'));
+    };
+
+    document.getElementById('exportBtn').onclick = () => {
+      const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'notevault-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+    };
+
+    // --- 3. RENDER NOTES ---
+    function renderNotes() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const pinnedGrid = document.getElementById('pinnedGrid');
+      const notesGrid = document.getElementById('notesGrid');
+      const pinnedSection = document.getElementById('pinnedSection');
+      pinnedGrid.innerHTML = '';
+      notesGrid.innerHTML = '';
+
+      const filtered = notes.filter((n) => {
+        if (currentFilter === 'trash') return n.trashed;
+        if (n.trashed) return false;
+        if (currentFilter === 'archive') return n.archived;
+        if (n.archived) return false;
+        if (currentFilter === 'checklist' && (!n.checklist || n.checklist.length === 0)) return false;
+        if (currentFilter === 'sketch' && !n.sketch) return false;
+        if (currentFilter === 'pdf' && n.label !== 'PDF') return false;
+
+        const hay = `${n.title} ${n.bodyText || ''} ${n.label || ''} ${(n.checklist || []).map(i => i.text).join(' ')}`.toLowerCase();
+        return hay.includes(q);
+      });
+
+      let pinnedCount = 0;
+      filtered.forEach((note) => {
+        const card = document.createElement('div');
+        card.className = `note-card ${note.color || 'c-default'}`;
+        card.onclick = (e) => {
+          if (e.target.classList.contains('pin-btn')) return;
+          openEditor(note.id);
+        };
+
+        const checkSummary = (note.checklist && note.checklist.length)
+          ? `<div>☑️ ${note.checklist.filter(i => i.done).length}/${note.checklist.length} completed</div>`
+          : '';
+
+        card.innerHTML = `
+          <button class="pin-btn" title="Pin note">${note.pinned ? '📌' : '📍'}</button>
+          <h3>${escapeHtml(note.title || 'Untitled Note')}</h3>
+          ${note.sketch ? `<img src="${note.sketch}" class="note-sketch-thumb" alt="Sketch" />` : ''}
+          <div class="note-preview">${note.bodyHtml || ''}</div>
+          ${checkSummary}
+          <div class="note-meta">
+            ${note.label ? `<span class="badge">#${escapeHtml(note.label)}</span>` : ''}
+            ${note.reminder ? `<span class="badge">⏰ ${new Date(note.reminder).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>` : ''}
+          </div>
+        `;
+
+        card.querySelector('.pin-btn').onclick = () => {
+          note.pinned = !note.pinned;
+          saveToStorage();
+          renderNotes();
+        };
+
+        if (note.pinned && currentFilter === 'all') {
+          pinnedGrid.appendChild(card);
+          pinnedCount++;
+        } else {
+          notesGrid.appendChild(card);
+        }
+      });
+
+      pinnedSection.style.display = pinnedCount > 0 ? 'block' : 'none';
+      if (!filtered.length) {
+        notesGrid.innerHTML = '<p style="color:var(--muted);">No notes here yet. Tap "+ New Note" or "Read PDF" to begin.</p>';
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, (m) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
+    // Filter tabs & search
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.onclick = () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentFilter = tab.dataset.filter;
+        renderNotes();
+      };
+    });
+    document.getElementById('searchInput').oninput = renderNotes;
+
+    // --- 4. NOTE EDITOR (RICH TEXT + CHECKLIST + SKETCH) ---
+    const editorModal = document.getElementById('editorModal');
+    const canvas = document.getElementById('sketchCanvas');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+    let erasing = false;
+
+    function execFmt(cmd, val = null) {
+      document.execCommand(cmd, false, val);
+    }
+
+    document.querySelectorAll('[data-mode]').forEach((btn) => {
+      btn.onclick = () => {
+        const mode = btn.dataset.mode;
+        document.getElementById('textPane').style.display = mode === 'text' ? 'block' : 'none';
+        document.getElementById('checklistPane').style.display = mode === 'checklist' ? 'block' : 'none';
+        document.getElementById('sketchPane').style.display = mode === 'sketch' ? 'block' : 'none';
+      };
+    });
+
+    // Checklist Logic
+    function renderChecklistEditor() {
+      const wrap = document.getElementById('checklistItems');
+      wrap.innerHTML = '';
+      currentChecklist.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'checklist-item' + (item.done ? ' done' : '');
+        row.innerHTML = `
+          <input type="checkbox" ${item.done ? 'checked' : ''} />
+          <input type="text" value="${escapeHtml(item.text)}" />
+          <button class="btn btn-sm">✕</button>
+        `;
+        row.querySelector('input[type="checkbox"]').onchange = (e) => {
+          currentChecklist[idx].done = e.target.checked;
+          renderChecklistEditor();
+        };
+        row.querySelector('input[type="text"]').oninput = (e) => {
+          currentChecklist[idx].text = e.target.value;
+        };
+        row.querySelector('button').onclick = () => {
+          currentChecklist.splice(idx, 1);
+          renderChecklistEditor();
+        };
+        wrap.appendChild(row);
+      });
+    }
+
+    document.getElementById('addCheckItemBtn').onclick = () => {
+      const inp = document.getElementById('newCheckItem');
+      if (!inp.value.trim()) return;
+      currentChecklist.push({ text: inp.value.trim(), done: false });
+      inp.value = '';
+      renderChecklistEditor();
+    };
+
+    // Sketch Canvas Pointer Events (Supports Stylus, Touch, Mouse)
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      drawing = true;
+      hasSketch = true;
+      const p = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drawing) return;
+      const p = getPos(e);
+      ctx.lineWidth = erasing ? 18 : document.getElementById('penSize').value;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = erasing ? '#ffffff' : document.getElementById('penColor').value;
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    });
+
+    window.addEventListener('pointerup', () => { drawing = false; });
+    document.getElementById('eraserBtn').onclick = () => { erasing = !erasing; };
+    document.getElementById('clearCanvasBtn').onclick = () => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      hasSketch = false;
+    };
+
+    // Swatches
+    document.querySelectorAll('.swatch').forEach((s) => {
+      s.onclick = () => { currentColor = s.dataset.color; };
+    });
+
+    function openEditor(id = null) {
+      editingId = id;
+      erasing = false;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (id) {
+        const n = notes.find(x => x.id === id);
+        document.getElementById('noteTitle').value = n.title || '';
+        document.getElementById('noteBody').innerHTML = n.bodyHtml || '';
+        document.getElementById('noteLabel').value = n.label || '';
+        document.getElementById('noteReminder').value = n.reminder || '';
+        currentColor = n.color || 'c-default';
+        currentChecklist = JSON.parse(JSON.stringify(n.checklist || []));
+        hasSketch = !!n.sketch;
+        if (n.sketch) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0);
+          img.src = n.sketch;
+        }
+      } else {
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteBody').innerHTML = '';
+        document.getElementById('noteLabel').value = '';
+        document.getElementById('noteReminder').value = '';
+        currentColor = 'c-default';
+        currentChecklist = [];
+        hasSketch = false;
+      }
+
+      renderChecklistEditor();
+      editorModal.classList.add('open');
+    }
+
+    document.getElementById('newNoteBtn').onclick = () => openEditor(null);
+    document.getElementById('closeEditorBtn').onclick = () => editorModal.classList.remove('open');
+
+    document.getElementById('saveNoteBtn').onclick = () => {
+      const title = document.getElementById('noteTitle').value.trim();
+      const bodyEl = document.getElementById('noteBody');
+      const label = document.getElementById('noteLabel').value.trim();
+      const reminder = document.getElementById('noteReminder').value;
+      const sketchData = hasSketch ? canvas.toDataURL('image/png') : null;
+
+      if (editingId) {
+        const idx = notes.findIndex(x => x.id === editingId);
+        notes[idx] = {
+          ...notes[idx],
+          title,
+          bodyHtml: bodyEl.innerHTML,
+          bodyText: bodyEl.innerText,
+          checklist: currentChecklist,
+          sketch: sketchData,
+          color: currentColor,
+          label,
+          reminder,
+          updatedAt: Date.now()
+        };
+      } else {
+        notes.unshift({
+          id: 'note_' + Date.now(),
+          title,
+          bodyHtml: bodyEl.innerHTML,
+          bodyText: bodyEl.innerText,
+          checklist: currentChecklist,
+          sketch: sketchData,
+          color: currentColor,
+          label,
+          reminder,
+          pinned: false,
+          archived: false,
+          trashed: false,
+          createdAt: Date.now()
+        });
+      }
+
+      saveToStorage();
+      renderNotes();
+      editorModal.classList.remove('open');
+    };
+
+    document.getElementById('archiveNoteBtn').onclick = () => {
+      if (!editingId) return;
+      const n = notes.find(x => x.id === editingId);
+      n.archived = !n.archived;
+      saveToStorage();
+      renderNotes();
+      editorModal.classList.remove('open');
+    };
+
+    document.getElementById('deleteNoteBtn').onclick = () => {
+      if (!editingId) return;
+      const idx = notes.findIndex(x => x.id === editingId);
+      if (notes[idx].trashed) {
+        notes.splice(idx, 1);
+      } else {
+        notes[idx].trashed = true;
+      }
+      saveToStorage();
+      renderNotes();
+      editorModal.classList.remove('open');
+    };
+
+    // --- 5. PDF READER + SPLIT STUDY NOTES ---
+    const pdfModal = document.getElementById('pdfModal');
+    let pdfDoc = null;
+    let pdfPage = 1;
+    let pdfScale = 1.2;
+
+    async function renderPdfPage(num) {
+      if (!pdfDoc) return;
+      const page = await pdfDoc.getPage(num);
+      const viewport = page.getViewport({ scale: pdfScale });
+      const pCanvas = document.getElementById('pdfCanvas');
+      pCanvas.height = viewport.height;
+      pCanvas.width = viewport.width;
+      await page.render({ canvasContext: pCanvas.getContext('2d'), viewport }).promise;
+      document.getElementById('pageIndicator').textContent = `Page ${num} / ${pdfDoc.numPages}`;
+    }
+
+    document.getElementById('openPdfReaderBtn').onclick = () => pdfModal.classList.add('open');
+    document.getElementById('closePdfBtn').onclick = () => pdfModal.classList.remove('open');
+
+    document.getElementById('pdfFileInput').onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('pdfNoteTitle').value = file.name.replace(/\.pdf$/i, '');
+      const arrayBuffer = await file.arrayBuffer();
+      pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      pdfPage = 1;
+      renderPdfPage(pdfPage);
+    };
+
+    document.getElementById('prevPageBtn').onclick = () => {
+      if (pdfDoc && pdfPage > 1) { pdfPage--; renderPdfPage(pdfPage); }
+    };
+    document.getElementById('nextPageBtn').onclick = () => {
+      if (pdfDoc && pdfPage < pdfDoc.numPages) { pdfPage++; renderPdfPage(pdfPage); }
+    };
+    document.getElementById('zoomInBtn').onclick = () => {
+      if (pdfDoc) { pdfScale += 0.2; renderPdfPage(pdfPage); }
+    };
+    document.getElementById('zoomOutBtn').onclick = () => {
+      if (pdfDoc && pdfScale > 0.6) { pdfScale -= 0.2; renderPdfPage(pdfPage); }
+    };
+
+    document.getElementById('savePdfNoteBtn').onclick = () => {
+      const title = document.getElementById('pdfNoteTitle').value.trim() || 'PDF Summary';
+      const text = document.getElementById('pdfNoteText').value.trim();
+      if (!text) return;
+      notes.unshift({
+        id: 'note_' + Date.now(),
+        title,
+        bodyHtml: escapeHtml(text).replace(/\n/g, '<br>'),
+        bodyText: text,
+        checklist: [],
+        sketch: null,
+        color: 'c-blue',
+        label: 'PDF',
+        pinned: false,
+        archived: false,
+        trashed: false
+      });
+      saveToStorage();
+      renderNotes();
+      document.getElementById('pdfNoteText').value = '';
+      pdfModal.classList.remove('open');
+    };
+
+    // Reminder Notification Checker (runs every 30s)
+    setInterval(() => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const now = Date.now();
+      notes.forEach((n) => {
+        if (n.reminder && !n.notified && new Date(n.reminder).getTime() <= now) {
+          n.notified = true;
+          saveToStorage();
+          new Notification('NoteVault Reminder: ' + (n.title || 'Note'), {
+            body: n.bodyText || 'Tap to view your note.'
+          });
+        }
+      });
+    }, 30000);
+
+    // Handle Launch Queue (when opening a PDF directly from Android/Windows file manager)
+    if ('launchQueue' in window) {
+      window.launchQueue.setConsumer(async (launchParams) => {
+        if (!launchParams.files || !launchParams.files.length) return;
+        const fileHandle = launchParams.files[0];
+        const file = await fileHandle.getFile();
+        pdfModal.classList.add('open');
+        document.getElementById('pdfNoteTitle').value = file.name.replace(/\.pdf$/i, '');
+        const arrayBuffer = await file.arrayBuffer();
+        pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        pdfPage = 1;
+        renderPdfPage(pdfPage);
+      });
+    }
+
+    renderNotes();
+  </script>
+</body>
+</html>
