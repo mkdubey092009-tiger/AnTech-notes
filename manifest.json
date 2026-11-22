@@ -1,0 +1,46 @@
+{
+  "name": "NoteVault Pro — Notes & PDF Reader",
+  "short_name": "NoteVault",
+  "description": "Offline-first notes, checklists, handwriting sketchpad, and PDF reader.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "categories": ["productivity", "utilities", "education"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%232563eb'/%3E%3Cpath d='M144 112h168l80 80v208a32 32 0 0 1-32 32H144a32 32 0 0 1-32-32V144a32 32 0 0 1 32-32z' fill='%23ffffff'/%3E%3Cpath d='M312 112v80h80' fill='%2393c5fd'/%3E%3Crect x='160' y='232' width='192' height='20' rx='10' fill='%232563eb'/%3E%3Crect x='160' y='280' width='150' height='20' rx='10' fill='%2364748b'/%3E%3Crect x='160' y='328' width='120' height='20' rx='10' fill='%2364748b'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%232563eb'/%3E%3Cpath d='M144 112h168l80 80v208a32 32 0 0 1-32 32H144a32 32 0 0 1-32-32V144a32 32 0 0 1 32-32z' fill='%23ffffff'/%3E%3Cpath d='M312 112v80h80' fill='%2393c5fd'/%3E%3Crect x='160' y='232' width='192' height='20' rx='10' fill='%232563eb'/%3E%3Crect x='160' y='280' width='150' height='20' rx='10' fill='%2364748b'/%3E%3Crect x='160' y='328' width='120' height='20' rx='10' fill='%2364748b'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./index.html",
+      "accept": {
+        "application/pdf": [".pdf"]
+      }
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Note",
+      "short_name": "New Note",
+      "url": "./index.html?action=new"
+    },
+    {
+      "name": "Open PDF Reader",
+      "short_name": "Read PDF",
+      "url": "./index.html?action=pdf"
+    }
+  ]
+}
